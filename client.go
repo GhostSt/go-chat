@@ -1,7 +1,8 @@
 package main
 
 import (
-	"bytes"
+	"encoding/json"
+	"fmt"
 	"github.com/gorilla/websocket"
 	"io"
 	"log"
@@ -34,7 +35,13 @@ type Client struct {
 	conn *websocket.Conn
 
 	// Buffered channel of outbound messages.
-	send chan []byte
+	send chan *Message
+}
+
+type Message struct {
+	Code string `json:"code"`
+	Type string `json:"type"`
+	Body string `json:"body"`
 }
 
 // Reads messages from connection and pumps them to hub
@@ -53,7 +60,7 @@ func (c *Client) Read() {
 	c.conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
 
 	for {
-		_, message, err := c.conn.ReadMessage()
+		_, rawMessage, err := c.conn.ReadMessage()
 
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
@@ -64,7 +71,14 @@ func (c *Client) Read() {
 			break
 		}
 
-		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
+		message := &Message{}
+
+		err = json.Unmarshal(rawMessage, message)
+
+		if err != nil {
+			log.Print(fmt.Sprintf("Unable to parse message: %s", rawMessage))
+		}
+
 		c.hub.Broadcast(message)
 	}
 }
@@ -97,13 +111,17 @@ func (c *Client) Write() {
 				return
 			}
 
-			c.write(w, message)
+			rawMessage, _ := json.Marshal(message)
+
+			c.write(w, rawMessage)
 
 			n := len(c.send)
 
 			for i := 0; i < n; i++ {
 				c.write(w, newline)
-				c.write(w, <-c.send)
+
+				rawMessage, _ := json.Marshal(<- c.send)
+				c.write(w, rawMessage)
 			}
 
 			if err := w.Close(); err != nil {

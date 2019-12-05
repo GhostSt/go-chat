@@ -7,14 +7,21 @@
     <script>
         let socket = new WebSocket("ws://localhost:8001/ws");
 
+        var message = {};
+        message.body = "Меня зовут Джон";
+
+        rawMessage = JSON.stringify(message);
+        console.log(rawMessage);
+
         socket.onopen = function(e) {
             alert("[open] Соединение установлено");
             alert("Отправляем данные на сервер");
-            socket.send("Меня зовут Джон");
+            socket.send(rawMessage);
         };
 
         socket.onmessage = function(event) {
-            alert(`[message] Данные получены с сервера: ${event.data}`);
+            message = JSON.parse(event.data)
+            alert(`[message] Данные получены с сервера: ${message.body}`);
         };
 
         socket.onclose = function(event) {

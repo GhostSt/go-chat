@@ -4,7 +4,7 @@ import "log"
 
 type Hub struct {
 	clients    map[*Client]bool
-	broadcast  chan []byte
+	broadcast  chan *Message
 	register   chan *Client
 	unregister chan *Client
 }
@@ -12,13 +12,13 @@ type Hub struct {
 func newHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan *Message),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
 }
 
-func (h *Hub) Broadcast(message []byte) {
+func (h *Hub) Broadcast(message *Message) {
 	h.broadcast <- message
 }
 
