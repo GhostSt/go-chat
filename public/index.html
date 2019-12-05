@@ -5,7 +5,7 @@
     <title>Chat</title>
 
     <script>
-        let socket = new WebSocket("wss://javascript.info/article/websocket/demo/hello");
+        let socket = new WebSocket("ws://localhost:8001/ws");
 
         socket.onopen = function(e) {
             alert("[open] Соединение установлено");

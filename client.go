@@ -1,11 +1,11 @@
 package main
 
 import (
-	"time"
-	"github.com/gorilla/websocket"
-	"log"
 	"bytes"
-	"unicode"
+	"github.com/gorilla/websocket"
+	"io"
+	"log"
+	"time"
 )
 
 const (
@@ -41,7 +41,11 @@ type Client struct {
 func (c *Client) Read() {
 	defer func() {
 		c.hub.unregister <- c
-		c.conn.Close()
+		err := c.conn.Close()
+
+		if err != nil {
+			log.Fatal()
+		}
 	}()
 
 	c.conn.SetReadLimit(maxMessageSize)
@@ -52,7 +56,7 @@ func (c *Client) Read() {
 		_, message, err := c.conn.ReadMessage()
 
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure){
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
 
@@ -61,7 +65,7 @@ func (c *Client) Read() {
 		}
 
 		message = bytes.TrimSpace(bytes.Replace(message, newline, space, -1))
-		c.hub.broadcast <-message
+		c.hub.Broadcast(message)
 	}
 }
 
@@ -70,12 +74,16 @@ func (c *Client) Write() {
 
 	defer func() {
 		ticker.Stop()
-		c.conn.Close()
+		err := c.conn.Close()
+
+		if err != nil {
+			log.Fatal()
+		}
 	}()
 
 	for {
 		select {
-		case message, ok := <- c.send:
+		case message, ok := <-c.send:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 
 			if !ok {
@@ -88,21 +96,21 @@ func (c *Client) Write() {
 				log.Printf("notice: error while getting writer - %v", err)
 				return
 			}
-			
-			w.Write(message)
-			
+
+			c.write(w, message)
+
 			n := len(c.send)
 
 			for i := 0; i < n; i++ {
-				w.Write(newline)
-				w.Write(<-c.send)
+				c.write(w, newline)
+				c.write(w, <-c.send)
 			}
 
 			if err := w.Close(); err != nil {
 				log.Printf("notice: error while closing writer - %v", err)
 				return
 			}
-		case <- ticker.C:
+		case <-ticker.C:
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 
 			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -111,5 +119,14 @@ func (c *Client) Write() {
 				return
 			}
 		}
+	}
+}
+
+func (c *Client) write(w io.Writer, message []byte) {
+	_, err := w.Write(message)
+
+
+	if err != nil {
+		log.Fatal(err)
 	}
 }

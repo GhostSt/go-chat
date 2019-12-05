@@ -12,7 +12,7 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
-func servePage(w http.ResponseWriter, r *http.Request) {
+func serveFrontPage(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.Error(w, "Page not found", http.StatusNotFound)
 		return
@@ -27,21 +27,38 @@ func servePage(w http.ResponseWriter, r *http.Request) {
 }
 
 func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
+	log.Print("getting request")
 	conn, err := upgrader.Upgrade(w, r, nil)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Unable to upgrade connection: ", err)
 	}
 
+	client := &Client{
+		hub: hub,
+		conn: conn,
+		send: make(chan []byte, 256),
+	}
 
+	hub.Register(client)
+
+	go client.Write()
+	go client.Read()
 }
 
 func main() {
-	http.HandleFunc("/", FrontPage)
+	hub := newHub()
+	go hub.Run()
+
+	log.Print("starting http server")
+	http.HandleFunc("/", serveFrontPage)
+	http.HandleFunc("/ws", func (w http.ResponseWriter, r *http.Request) {
+		serveWs(hub, w, r)
+	})
 
 	err := http.ListenAndServe(":8001", nil)
 
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("ListenAndServe: ", err)
 	}
 }
