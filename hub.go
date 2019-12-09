@@ -1,6 +1,9 @@
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+)
 
 type Hub struct {
 	clients    map[*Client]bool
@@ -37,6 +40,7 @@ func (h *Hub) Run() {
 			for client := range h.clients {
 				select {
 				case client.send <- message:
+					log.Print(fmt.Sprintf("Sending message to client: %s", message.Body))
 				default:
 					log.Print("Closing client while broadcasting if unable send message to client.")
 					close(client.send)

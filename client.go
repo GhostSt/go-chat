@@ -28,6 +28,11 @@ var (
 	space   = []byte{' '}
 )
 
+const (
+	type_success = "0x00001"
+	type_fail    = "0x00002"
+)
+
 type Client struct {
 	hub *Hub
 
@@ -51,7 +56,7 @@ func (c *Client) Read() {
 		err := c.conn.Close()
 
 		if err != nil {
-			log.Fatal()
+			log.Print(fmt.Printf("notice: %s", err))
 		}
 	}()
 
@@ -63,12 +68,13 @@ func (c *Client) Read() {
 		_, rawMessage, err := c.conn.ReadMessage()
 
 		if err != nil {
+			log.Print(fmt.Sprintf("notice: couldn't read message: %s", err))
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				log.Printf("error: %v", err)
 			}
 
 			// TODO: add handling another close status codes
-			break
+			return
 		}
 
 		message := &Message{}
@@ -91,7 +97,7 @@ func (c *Client) Write() {
 		err := c.conn.Close()
 
 		if err != nil {
-			log.Fatal()
+			log.Print(fmt.Printf("notice: %s", err))
 		}
 	}()
 
@@ -101,6 +107,8 @@ func (c *Client) Write() {
 			c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 
 			if !ok {
+				log.Print("Closing connection")
+
 				c.conn.WriteMessage(websocket.CloseMessage, []byte{})
 			}
 
@@ -120,7 +128,7 @@ func (c *Client) Write() {
 			for i := 0; i < n; i++ {
 				c.write(w, newline)
 
-				rawMessage, _ := json.Marshal(<- c.send)
+				rawMessage, _ := json.Marshal(<-c.send)
 				c.write(w, rawMessage)
 			}
 
@@ -143,8 +151,7 @@ func (c *Client) Write() {
 func (c *Client) write(w io.Writer, message []byte) {
 	_, err := w.Write(message)
 
-
 	if err != nil {
-		log.Fatal(err)
+		log.Print(fmt.Sprintf("notice: unable to write message to connection writer: %s", err))
 	}
 }

@@ -1,10 +1,12 @@
 package main
 
 import (
-	"net/http"
-	"log"
-
+	"fmt"
 	"github.com/gorilla/websocket"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
 )
 
 var upgrader = websocket.Upgrader{
@@ -44,6 +46,17 @@ func serveWs(hub *Hub, w http.ResponseWriter, r *http.Request) {
 
 	go client.Write()
 	go client.Read()
+
+	time.Sleep(50 * time.Millisecond)
+	activeClients := len(hub.clients)
+
+	log.Print(fmt.Sprintf("Active clients: %d", activeClients))
+	message := &Message{
+		Code: type_success,
+		Type: "online",
+		Body: strconv.Itoa(activeClients),
+	}
+	hub.Broadcast(message)
 }
 
 func main() {
