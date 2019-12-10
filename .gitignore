@@ -1,7 +1,9 @@
 # IDE files
 /.idea
+/vendor
 
 # Binaries for programs and plugins
+go-chat
 *.exe
 *.exe~
 *.dll
